@@ -1,0 +1,1111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Snow</title>
+  <style>
+    :root{
+      --panel: rgba(12, 18, 30, .58);
+      --text: rgba(255,255,255,.88);
+      --muted: rgba(255,255,255,.68);
+      --stroke: rgba(255,255,255,.14);
+      --shadow: rgba(0,0,0,.25);
+    }
+    html, body{
+      height:100%;
+      margin:0;
+      overflow:hidden;
+      background:#000;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    canvas{ display:block; width:100vw; height:100vh; }
+
+    .btn{
+      width:44px; height:44px;
+      border-radius:14px;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      box-shadow:0 10px 30px var(--shadow);
+      color:var(--text);
+      display:grid;
+      place-items:center;
+      pointer-events:auto;
+      padding:0;
+    }
+    .btn:active{ transform:scale(0.98); }
+    .btn svg{ width:22px; height:22px; opacity:.9; }
+
+    .topRight{
+      position:fixed;
+      top:max(12px, env(safe-area-inset-top));
+      right:max(12px, env(safe-area-inset-right));
+      display:flex;
+      gap:10px;
+      pointer-events:none;
+    }
+    .topRight .btn{ pointer-events:auto; }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.35);
+      backdrop-filter: blur(6px);
+      display:none;
+      pointer-events:auto;
+    }
+    .overlay.open{ display:block; }
+
+    .popup{
+      position:fixed;
+      left:12px; right:12px;
+      top:70px;
+      max-width:580px;
+      margin:0 auto;
+      border-radius:18px;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      box-shadow:0 18px 60px rgba(0,0,0,.45);
+      padding:14px 14px 12px;
+      color:var(--text);
+      display:none;
+      pointer-events:auto;
+    }
+    .popup.open{ display:block; }
+
+    .popup header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:4px 2px 10px;
+    }
+    .popup header .title{
+      font-weight:650;
+      letter-spacing:.2px;
+      opacity:.95;
+    }
+    .closeBtn{
+      width:38px; height:38px;
+      border-radius:14px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      color:var(--text);
+      display:grid;
+      place-items:center;
+    }
+    .closeBtn:active{ transform:scale(0.98); }
+    .closeBtn svg{ width:18px; height:18px; opacity:.9; }
+
+    .row{
+      padding:10px 2px;
+      border-top:1px solid rgba(255,255,255,.10);
+    }
+    .row:first-of-type{ border-top:0; }
+
+    .labelLine{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .labelLine .label{ color:var(--text); font-size:14px; }
+    .labelLine .value{ color:var(--muted); font-size:13px; }
+
+    input[type="range"]{ width:100%; accent-color:#cfe9ff; }
+    .mini{ font-size:12px; color:var(--muted); padding:6px 2px 2px; }
+
+    select{
+      width:100%;
+      padding:10px 10px;
+      border-radius:14px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      color:var(--text);
+      outline:none;
+      appearance:none;
+    }
+
+    .dangerBtn{
+      width:100%;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      color:var(--text);
+      text-align:center;
+    }
+    .dangerBtn:active{ transform:scale(0.99); }
+
+    .swatches{
+      display:grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap:8px;
+    }
+    .swatch{
+      width:100%;
+      aspect-ratio: 1 / 1;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.16);
+      background:#fff;
+      cursor:pointer;
+      position:relative;
+      overflow:hidden;
+    }
+    .swatch:active{ transform:scale(0.98); }
+    .swatch[aria-selected="true"]::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:12px;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.9);
+      opacity:.95;
+    }
+    .swatch[aria-selected="true"]::before{
+      content:"✓";
+      position:absolute;
+      right:6px;
+      bottom:4px;
+      font-size:12px;
+      color:rgba(0,0,0,.55);
+      background:rgba(255,255,255,.75);
+      border-radius:10px;
+      padding:1px 6px;
+      border:1px solid rgba(0,0,0,.10);
+    }
+
+    @media (max-width: 420px){
+      .swatches{ grid-template-columns: repeat(4, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="topRight">
+  <button class="btn" id="fsBtn" aria-label="Fullscreen" title="Fullscreen">
+    <svg id="fsIconEnter" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <svg id="fsIconExit" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none">
+      <path d="M9 9H6a2 2 0 0 1-2-2V4M15 9h3a2 2 0 0 0 2-2V4M9 15H6a2 2 0 0 0-2 2v3M15 15h3a2 2 0 0 1 2 2v3"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <button class="btn" id="gearBtn" aria-label="Настройки" title="Настройки">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" stroke="currentColor" stroke-width="2" />
+      <path d="M19.4 13.5v-3l-2-.6c-.2-.6-.5-1.2-.9-1.7l.9-1.9-2.1-2.1-1.9.9c-.5-.4-1.1-.7-1.7-.9l-.6-2h-3l-.6 2c-.6.2-1.2.5-1.7.9l-1.9-.9L3.6 6.3l.9 1.9c-.4.5-.7 1.1-.9 1.7l-2 .6v3l2 .6c.2.6.5 1.2.9 1.7l-.9 1.9 2.1 2.1 1.9-.9c.5.4 1.1.7 1.7.9l.6 2h3l.6-2c.6-.2 1.2-.5 1.7-.9l1.9.9 2.1-2.1-.9-1.9c.4-.5.7-1.1.9-1.7l2-.6Z"
+            stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+  </button>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="popup" id="popup" role="dialog" aria-modal="true" aria-label="Настройки снега">
+  <header>
+    <div class="title">Настройки</div>
+    <button class="closeBtn" id="closeBtn" aria-label="Закрыть">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="row">
+    <div class="labelLine">
+      <div class="label">Стиль снежинок</div>
+      <div class="value" id="styleVal"></div>
+    </div>
+    <select id="flakeStyle">
+      <option value="puff">☁️ Пух</option>
+      <option value="flake">❄️ Снежинка</option>
+    </select>
+    <div class="mini">“❄️ Снежинка” более настоящая, но чуть тяжелее по графике.</div>
+  </div>
+
+  <div class="row">
+    <div class="labelLine">
+      <div class="label">Фон (16 пастельных)</div>
+      <div class="value" id="bgVal"></div>
+    </div>
+    <div class="swatches" id="bgSwatches" aria-label="Палитра фона"></div>
+  </div>
+
+  <div class="row">
+    <div class="labelLine">
+      <div class="label">Снежинки (16 пастельных)</div>
+      <div class="value" id="flakeVal"></div>
+    </div>
+    <div class="swatches" id="flakeSwatches" aria-label="Палитра снежинок"></div>
+  </div>
+
+  <div class="row">
+    <div class="labelLine">
+      <div class="label">Интенсивность (снежинок)</div>
+      <div class="value" id="countVal"></div>
+    </div>
+    <input id="countRange" type="range" min="60" max="260" step="1" />
+  </div>
+
+  <div class="row">
+    <div class="labelLine">
+      <div class="label">Размер снежинок</div>
+      <div class="value" id="sizeVal"></div>
+    </div>
+    <input id="sizeRange" type="range" min="70" max="160" step="1" />
+  </div>
+
+  <div class="row">
+    <div class="labelLine">
+      <div class="label">Сила волны (клик/тап)</div>
+      <div class="value" id="waveVal"></div>
+    </div>
+    <input id="waveRange" type="range" min="40" max="140" step="1" />
+  </div>
+
+  <div class="row">
+    <button class="dangerBtn" id="resetBanksBtn" type="button">Сбросить сугробы</button>
+    <div class="mini">Вернёт сугробы к стартовому уровню.</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d", { alpha: true });
+
+  // ---------- LocalStorage keys ----------
+  const LS_SETTINGS_KEY = "snow_app_settings_v1";
+  const LS_BANK_KEY     = "snow_app_bank_v1";
+
+  // ---------- UI ----------
+  const gearBtn = document.getElementById("gearBtn");
+  const overlay = document.getElementById("overlay");
+  const popup = document.getElementById("popup");
+  const closeBtn = document.getElementById("closeBtn");
+
+  const fsBtn = document.getElementById("fsBtn");
+  const fsIconEnter = document.getElementById("fsIconEnter");
+  const fsIconExit  = document.getElementById("fsIconExit");
+
+  const flakeStyleSel = document.getElementById("flakeStyle");
+  const styleVal = document.getElementById("styleVal");
+
+  const bgSwatches = document.getElementById("bgSwatches");
+  const flakeSwatches = document.getElementById("flakeSwatches");
+  const bgVal = document.getElementById("bgVal");
+  const flakeVal = document.getElementById("flakeVal");
+
+  const countRange = document.getElementById("countRange");
+  const sizeRange  = document.getElementById("sizeRange");
+  const waveRange  = document.getElementById("waveRange");
+  const countVal = document.getElementById("countVal");
+  const sizeVal  = document.getElementById("sizeVal");
+  const waveVal  = document.getElementById("waveVal");
+  const resetBanksBtn = document.getElementById("resetBanksBtn");
+
+  function openPopup(){ overlay.classList.add("open"); popup.classList.add("open"); }
+  function closePopup(){ overlay.classList.remove("open"); popup.classList.remove("open"); }
+  gearBtn.addEventListener("click", openPopup, { passive:true });
+  closeBtn.addEventListener("click", closePopup, { passive:true });
+  overlay.addEventListener("click", closePopup, { passive:true });
+
+  // ---------- Fullscreen ----------
+  const isFullscreen = () => !!document.fullscreenElement;
+  function updateFsUI(){
+    if (!document.fullscreenEnabled) fsBtn.style.display = "none";
+    fsIconEnter.style.display = isFullscreen() ? "none" : "block";
+    fsIconExit.style.display  = isFullscreen() ? "block" : "none";
+  }
+  async function toggleFullscreen(){
+    closePopup();
+    if (!document.fullscreenEnabled) return;
+    try{
+      if (!isFullscreen()) await document.documentElement.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch(e){
+      console.warn("Fullscreen failed:", e);
+    } finally {
+      updateFsUI();
+      setTimeout(resize, 60);
+    }
+  }
+  fsBtn.addEventListener("click", toggleFullscreen, { passive:true });
+  document.addEventListener("fullscreenchange", () => { updateFsUI(); setTimeout(resize, 60); });
+
+  // ---------- Helpers ----------
+  const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const smoothstep = (t)=>t*t*(3-2*t);
+  const rand = (a,b)=>Math.random()*(b-a)+a;
+
+  function hexToRgb(hex){
+    const s = hex.replace("#","");
+    const n = parseInt(s.length===3 ? s.split("").map(c=>c+c).join("") : s, 16);
+    return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+  }
+  function rgbaFromHex(hex, a){
+    const c = hexToRgb(hex);
+    return `rgba(${c.r},${c.g},${c.b},${a})`;
+  }
+
+  // ---------- Pastel palettes ----------
+  const BG_PALETTE = [
+    "#0B0F14","#101A2A","#132032","#17263A","#1B2C45","#22324A","#2A3850","#2C3140",
+    "#1E1B2B","#261B2B","#2B1F2A","#2B2430","#2A2A32","#2E2F36","#31313A","#0E141B"
+  ];
+  const FLAKE_PALETTE = [
+    "#FFFFFF","#F6F8FF","#EEF3FF","#E9FBFF","#EAF6F0","#FFF3E8","#FFEFF6","#FFF8E6",
+    "#F2EDFF","#EDE7FF","#E8F0FF","#E7FFF5","#F7FFE7","#FFEFE0","#FFE3EA","#EAF2FF"
+  ];
+
+  // ---------- Settings (runtime) ----------
+  const settings = {
+    count: 140,
+    sizeMul: 1.0,
+    waveAmp: 90,
+    bg: BG_PALETTE[0],
+    flake: FLAKE_PALETTE[0],
+    style: "puff" // puff|flake
+  };
+
+  function applyBackground(){
+    document.body.style.background = settings.bg;
+    bgVal.textContent = settings.bg;
+    flakeVal.textContent = settings.flake;
+  }
+
+  function renderSwatches(container, palette, getCurrent, setCurrent){
+    container.innerHTML = "";
+    palette.forEach((hex) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "swatch";
+      b.style.background = hex;
+      b.setAttribute("aria-label", hex);
+
+      const isSel = (hex.toUpperCase() === getCurrent().toUpperCase());
+      b.setAttribute("aria-selected", isSel ? "true" : "false");
+
+      b.addEventListener("click", () => {
+        setCurrent(hex.toUpperCase());
+        for (const child of container.children) child.setAttribute("aria-selected", "false");
+        b.setAttribute("aria-selected", "true");
+        applyBackground();
+        scheduleSaveAll(); // persist
+      }, { passive:true });
+
+      container.appendChild(b);
+    });
+  }
+
+  // ---------- Noise ----------
+  function hash(n){ const x=Math.sin(n)*43758.5453123; return x-Math.floor(x); }
+  function noise1(x){
+    const i=Math.floor(x), f=x-i;
+    const a=hash(i*12.9898), b=hash((i+1)*12.9898);
+    return lerp(a,b,smoothstep(f))*2-1;
+  }
+  function fbm1(x){
+    let v=0, amp=0.6, freq=1;
+    for (let k=0;k<4;k++){
+      v += noise1(x*freq)*amp;
+      freq *= 2.05;
+      amp *= 0.52;
+    }
+    return v;
+  }
+
+  // ---------- Resize / DPR ----------
+  let W=0, H=0, DPR=1;
+  function resize(){
+    DPR = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
+    W = Math.floor(window.innerWidth);
+    H = Math.floor(window.innerHeight);
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    // resize bank + attempt to keep existing shape
+    resizeBanks();
+  }
+  window.addEventListener("resize", () => {
+    resize();
+    // после ресайза сохраним текущий bank (уже пересэмплирован)
+    scheduleSaveBank();
+  }, { passive:true });
+
+  // ---------- Snowbank ----------
+  let bankStep = 6;
+  let bank = new Float32Array(2);
+  let bankBase = new Float32Array(2);
+  let bankN = 2;
+
+  function buildBaseBank(){
+    bankBase = new Float32Array(bankN);
+    for (let i=0;i<bankN;i++){
+      const x = i / Math.max(1, bankN-1);
+      bankBase[i] = 10 + 8*(0.5+0.5*fbm1(100 + x*6.0));
+    }
+  }
+
+  function resampleArray(srcArr, newLen){
+    if (!srcArr || srcArr.length < 2) return null;
+    const out = new Float32Array(newLen);
+    const maxIdx = srcArr.length - 1;
+    for (let i=0;i<newLen;i++){
+      const t = (newLen === 1) ? 0 : (i / (newLen - 1));
+      const x = t * maxIdx;
+      const i0 = Math.floor(x);
+      const i1 = Math.min(maxIdx, i0 + 1);
+      const f = x - i0;
+      out[i] = srcArr[i0]*(1-f) + srcArr[i1]*f;
+    }
+    return out;
+  }
+
+  function resizeBanks(){
+    const old = bank;
+
+    bankStep = (W < 420) ? 7 : 6;
+    bankN = Math.max(2, Math.floor(W / bankStep) + 1);
+
+    buildBaseBank();
+
+    // если есть старый bank — пересэмплируем под новый bankN
+    if (old && old.length >= 2){
+      bank = resampleArray(old, bankN) || new Float32Array(bankN);
+      // гарантируем хотя бы base
+      for (let i=0;i<bankN;i++) bank[i] = Math.max(bank[i], bankBase[i]);
+    } else {
+      bank = new Float32Array(bankN);
+      for (let i=0;i<bankN;i++) bank[i] = bankBase[i];
+    }
+  }
+
+  function resetBanks(){
+    for (let i=0;i<bankN;i++) bank[i] = bankBase[i];
+    scheduleSaveBank();
+  }
+  resetBanksBtn.addEventListener("click", () => {
+    resetBanks();
+    scheduleSaveAll();
+  }, { passive:true });
+
+  function bankHeightAtX(x){
+    const i = clamp(Math.floor(x / bankStep), 0, bankN-2);
+    const t = (x - i*bankStep) / bankStep;
+    return bank[i]*(1-t) + bank[i+1]*t;
+  }
+
+  function addToBank(x, amount){
+    const i = Math.floor(x / bankStep);
+    if (i < 0 || i >= bankN) return;
+    const radius = 4;
+    for (let k=-radius;k<=radius;k++){
+      const j = i + k;
+      if (j < 0 || j >= bankN) continue;
+      const w = Math.exp(-(k*k) / 6);
+      bank[j] += amount * w;
+    }
+    for (let j=Math.max(1, i-6); j<=Math.min(bankN-2, i+6); j++){
+      bank[j] = bank[j]*0.6 + (bank[j-1] + bank[j+1]) * 0.2;
+      bank[j] = Math.max(bank[j], bankBase[j]);
+    }
+  }
+
+  function drawBank(){
+    const maxH = Math.max(...bank);
+    const topY = H - maxH;
+    const grad = ctx.createLinearGradient(0, Math.max(0, topY - 180), 0, H);
+    grad.addColorStop(0, "rgba(210,235,255,0.08)");
+    grad.addColorStop(1, "rgba(255,255,255,0.22)");
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    ctx.lineTo(0, H - bank[0]);
+    for (let i=1;i<bankN;i++){
+      ctx.lineTo(i*bankStep, H - bank[i]);
+    }
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, H - bank[0] + 0.5);
+    for (let i=1;i<bankN;i++){
+      ctx.lineTo(i*bankStep, H - bank[i] + 0.5);
+    }
+    ctx.stroke();
+  }
+
+  // ---------- Snowflakes ----------
+  const flakes = [];
+  function makeFlake(resetTop=true){
+    const baseR = rand(1.2, 4.2);
+    flakes.push({
+      x: rand(0, W),
+      y: resetTop ? rand(-H, 0) : rand(0, H),
+      r0: baseR,
+      vy0: rand(18, 48) * (0.6 + baseR/5),
+      phase: rand(0, Math.PI*2),
+      drift: rand(0.7, 2.2) * (Math.random() < 0.5 ? -1 : 1),
+      turb: rand(0.8, 2.4),
+      rot: rand(0, Math.PI*2),
+      spin: rand(-2.2, 2.2),
+      alpha: rand(0.35, 0.95),
+      jx: 0,
+      jy: 0,
+      sparkle: rand(0.2, 1.0),
+    });
+  }
+  function syncCount(){
+    while (flakes.length < settings.count) makeFlake(true);
+    while (flakes.length > settings.count) flakes.pop();
+  }
+
+  // ---------- Wind ----------
+  let t = 0;
+  let windBase = 0;
+  let windGust = 0;
+  let windGustT = 0;
+  function updateWind(dt){
+    windBase = fbm1(t*0.08) * 18;
+    windGustT += dt;
+    if (windGustT > 1.2 + Math.random()*1.8){
+      windGustT = 0;
+      windGust = rand(-45, 45);
+    }
+    windGust *= Math.pow(0.14, dt);
+  }
+
+  // ---------- Wave ----------
+  const waves = [];
+  function addWave(x,y,strength=1){
+    waves.push({ x,y, age:0, r:0, speed:520, width:150, amp: settings.waveAmp*strength, life:0.9 });
+    windGust += rand(-18, 18) * strength;
+  }
+  function pointerToCanvas(e){
+    const rect = canvas.getBoundingClientRect();
+    return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
+  }
+  canvas.addEventListener("pointerdown", (e)=>{
+    const p = pointerToCanvas(e);
+    addWave(p.x, p.y, e.pointerType === "touch" ? 1.05 : 1.0);
+  }, { passive:true });
+
+  // ---------- Drawing ----------
+  function drawPuff(f, r){
+    const x=f.x, y=f.y;
+    const col = settings.flake;
+
+    const g = ctx.createRadialGradient(x - r*0.25, y - r*0.25, r*0.15, x, y, r*1.25);
+    g.addColorStop(0, rgbaFromHex(col, 0.90*f.alpha));
+    g.addColorStop(1, rgbaFromHex(col, 0.06*f.alpha));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r*1.18, 0, Math.PI*2);
+    ctx.fill();
+
+    const sparkle = 0.35 + 0.65*(0.5 + 0.5*Math.sin(f.rot*2.3));
+    ctx.fillStyle = rgbaFromHex(col, 0.16*f.alpha*sparkle*f.sparkle);
+    ctx.beginPath();
+    ctx.arc(x + r*0.22, y - r*0.28, r*0.42, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawSnowflakeShape(f, r){
+    const x=f.x, y=f.y;
+    const col = settings.flake;
+    const a = f.alpha;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(f.rot);
+
+    ctx.fillStyle = rgbaFromHex(col, 0.55*a);
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(0.8, r*0.22), 0, Math.PI*2);
+    ctx.fill();
+
+    const arm = r*1.85;
+    const branch = r*0.55;
+    const lw = Math.max(1, r*0.22);
+
+    ctx.lineCap = "round";
+
+    for (let k=0;k<6;k++){
+      const ang = k*(Math.PI/3);
+      const cx = Math.cos(ang), sy = Math.sin(ang);
+
+      ctx.strokeStyle = rgbaFromHex(col, 0.62*a);
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(cx*arm, sy*arm);
+      ctx.stroke();
+
+      for (let m=1;m<=2;m++){
+        const tt = arm*(0.35 + m*0.22);
+        const px = cx*tt, py = sy*tt;
+        const side = (m===1 ? 1 : -1);
+        const a1 = ang + side*0.55;
+        const a2 = ang - side*0.55;
+
+        ctx.strokeStyle = rgbaFromHex(col, (0.50 - m*0.08)*a);
+        ctx.lineWidth = Math.max(1, lw*0.85);
+
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + Math.cos(a1)*branch, py + Math.sin(a1)*branch);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + Math.cos(a2)*branch, py + Math.sin(a2)*branch);
+        ctx.stroke();
+      }
+    }
+
+    ctx.strokeStyle = rgbaFromHex(col, 0.10*a);
+    ctx.lineWidth = r*0.9;
+    ctx.beginPath();
+    ctx.arc(0,0, r*0.6, 0, Math.PI*2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawWave(w){
+    const a = Math.max(0, 1 - w.age / w.life);
+    ctx.strokeStyle = rgbaFromHex(settings.flake, 0.14*a);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, w.r, 0, Math.PI*2);
+    ctx.stroke();
+  }
+
+  // ---------- Labels ----------
+  function updateLabels(){
+    countVal.textContent = settings.count.toString();
+    sizeVal.textContent  = `${Math.round(settings.sizeMul*100)}%`;
+    waveVal.textContent  = settings.waveAmp.toString();
+    styleVal.textContent = (settings.style === "flake") ? "❄️" : "☁️";
+    bgVal.textContent = settings.bg;
+    flakeVal.textContent = settings.flake;
+  }
+
+  // ---------- LocalStorage: save/load ----------
+  let saveTimer = null;
+  let saveBankTimer = null;
+
+  function scheduleSaveAll(){
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      saveSettingsNow();
+      saveBankNow(); // вместе, чтобы точно восстановилось
+    }, 120);
+  }
+
+  function scheduleSaveBank(){
+    if (saveBankTimer) clearTimeout(saveBankTimer);
+    saveBankTimer = setTimeout(() => {
+      saveBankTimer = null;
+      saveBankNow();
+    }, 300);
+  }
+
+  function saveSettingsNow(){
+    try{
+      const payload = {
+        v: 1,
+        style: settings.style,
+        count: settings.count,
+        sizeMul: settings.sizeMul,
+        waveAmp: settings.waveAmp,
+        bg: settings.bg,
+        flake: settings.flake
+      };
+      localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(payload));
+    } catch(e){
+      // если переполнено/запрещено — тихо игнорируем
+      console.warn("settings save failed:", e);
+    }
+  }
+
+  function saveBankNow(){
+    try{
+      // сохраняем как массив чисел + метаданные для восстановления/ресэмпла
+      const payload = {
+        v: 1,
+        n: bankN,
+        step: bankStep,
+        w: W,
+        h: H,
+        data: Array.from(bank, x => +x.toFixed(3))
+      };
+      localStorage.setItem(LS_BANK_KEY, JSON.stringify(payload));
+    } catch(e){
+      console.warn("bank save failed:", e);
+    }
+  }
+
+  function loadSettings(){
+    try{
+      const raw = localStorage.getItem(LS_SETTINGS_KEY);
+      if (!raw) return false;
+      const s = JSON.parse(raw);
+      if (!s || s.v !== 1) return false;
+
+      const style = (s.style === "flake" || s.style === "puff") ? s.style : "puff";
+      const count = Number.isFinite(s.count) ? clamp(Math.round(s.count), 60, 260) : settings.count;
+      const sizeMul = Number.isFinite(s.sizeMul) ? clamp(+s.sizeMul, 0.7, 1.6) : settings.sizeMul;
+      const waveAmp = Number.isFinite(s.waveAmp) ? clamp(Math.round(s.waveAmp), 40, 140) : settings.waveAmp;
+
+      // цвета — только из палитры (иначе берём дефолт)
+      const bg = (typeof s.bg === "string" && BG_PALETTE.includes(s.bg.toUpperCase())) ? s.bg.toUpperCase() : settings.bg;
+      const flake = (typeof s.flake === "string" && FLAKE_PALETTE.includes(s.flake.toUpperCase())) ? s.flake.toUpperCase() : settings.flake;
+
+      settings.style = style;
+      settings.count = count;
+      settings.sizeMul = sizeMul;
+      settings.waveAmp = waveAmp;
+      settings.bg = bg;
+      settings.flake = flake;
+
+      return true;
+    } catch(e){
+      console.warn("settings load failed:", e);
+      return false;
+    }
+  }
+
+  // Загружаем bank и потом пересэмпливаем под текущий bankN
+  let loadedBank = null;
+  function loadBankFromLS(){
+    try{
+      const raw = localStorage.getItem(LS_BANK_KEY);
+      if (!raw) return null;
+      const b = JSON.parse(raw);
+      if (!b || b.v !== 1 || !Array.isArray(b.data) || b.data.length < 2) return null;
+      // простая валидация
+      const arr = b.data.map(x => (Number.isFinite(x) ? +x : 0));
+      return new Float32Array(arr);
+    } catch(e){
+      console.warn("bank load failed:", e);
+      return null;
+    }
+  }
+
+  // ---------- UI bindings ----------
+  flakeStyleSel.addEventListener("change", ()=>{
+    settings.style = flakeStyleSel.value;
+    updateLabels();
+    scheduleSaveAll();
+  });
+
+  countRange.addEventListener("input", ()=>{
+    settings.count = parseInt(countRange.value, 10);
+    syncCount();
+    updateLabels();
+    scheduleSaveAll();
+  });
+
+  sizeRange.addEventListener("input", ()=>{
+    settings.sizeMul = parseInt(sizeRange.value, 10)/100;
+    updateLabels();
+    scheduleSaveAll();
+  });
+
+  waveRange.addEventListener("input", ()=>{
+    settings.waveAmp = parseInt(waveRange.value, 10);
+    updateLabels();
+    scheduleSaveAll();
+  });
+
+  // ---------- Defaults / init ----------
+  function applyDefaultsBase(){
+    const area = W*H;
+    const density = Math.min(1.0, Math.max(0.55, area/(1200*800)));
+    settings.count = Math.floor(150*density);
+    settings.sizeMul = 1.0;
+    settings.waveAmp = 90;
+    settings.bg = BG_PALETTE[0];
+    settings.flake = FLAKE_PALETTE[0];
+    settings.style = "puff";
+  }
+
+  function syncUIFromSettings(){
+    countRange.value = String(settings.count);
+    sizeRange.value  = String(Math.round(settings.sizeMul*100));
+    waveRange.value  = String(settings.waveAmp);
+    flakeStyleSel.value = settings.style;
+
+    renderSwatches(bgSwatches, BG_PALETTE, () => settings.bg, (v) => settings.bg = v);
+    renderSwatches(flakeSwatches, FLAKE_PALETTE, () => settings.flake, (v) => settings.flake = v);
+
+    applyBackground();
+    updateLabels();
+  }
+
+  // ---------- Main loop ----------
+  let last = performance.now();
+  let bankSaveAccum = 0;
+
+  function frame(now){
+    const dt = Math.min(0.033, (now - last)/1000);
+    last = now;
+
+    t += dt;
+    updateWind(dt);
+
+    const bg = hexToRgb(settings.bg);
+    ctx.fillStyle = `rgba(${bg.r},${bg.g},${bg.b},0.22)`;
+    ctx.fillRect(0,0,W,H);
+
+    for (let i=waves.length-1;i>=0;i--){
+      const w = waves[i];
+      w.age += dt;
+      w.r += w.speed*dt;
+      if (w.age > w.life) waves.splice(i,1);
+    }
+
+    for (let i=0;i<flakes.length;i++){
+      const f = flakes[i];
+      const r  = f.r0 * settings.sizeMul;
+      const vy = f.vy0 * (0.78 + 0.28*settings.sizeMul);
+
+      const heightFactor = (f.y / Math.max(1,H));
+      const localNoise = fbm1((t*0.9 + f.phase) * f.turb + heightFactor*2.0);
+      const sway = Math.sin(t*1.6 + f.phase) * (10 + r*3);
+      const wind = windBase + windGust + localNoise*(22 + r*5);
+
+      for (let k=0;k<waves.length;k++){
+        const w = waves[k];
+        const dx = f.x - w.x;
+        const dy = f.y - w.y;
+        const dist = Math.hypot(dx,dy) + 1e-6;
+
+        const dRing = Math.abs(dist - w.r);
+        if (dRing < w.width){
+          const along = 1 - (dRing / w.width);
+          const life  = 1 - (w.age / w.life);
+
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          const push = (w.amp * 0.55) * along * life;
+
+          const tx = -ny, ty = nx;
+          const shake = Math.sin((dist*0.085) - w.age*16) * (10*along) * life;
+
+          f.jx += (nx*push + tx*shake) * dt;
+          f.jy += (ny*push + ty*shake) * dt;
+        }
+      }
+
+      f.jx *= Math.pow(0.05, dt);
+      f.jy *= Math.pow(0.05, dt);
+      const maxJ = 120;
+      f.jx = clamp(f.jx, -maxJ, maxJ);
+      f.jy = clamp(f.jy, -maxJ, maxJ);
+
+      f.x += (wind*dt) + (sway*dt) + f.drift;
+      f.y += (vy*dt) + (0.2*Math.sin(t*2 + f.phase)) + f.jy;
+      f.x += f.jx;
+      f.rot += f.spin*dt;
+
+      const groundY = H - bankHeightAtX(f.x);
+      if (f.y + r*0.9 >= groundY){
+        const add = 0.55 + 0.35*Math.min(2.0, r/3.2);
+        addToBank(f.x, add);
+
+        f.y = rand(-120, -10);
+        f.x = rand(0, W);
+        f.jx = f.jy = 0;
+
+        // периодически сохраняем сугробы, чтобы не спамить каждую снежинку
+        bankSaveAccum += 1;
+        if (bankSaveAccum >= 40){
+          bankSaveAccum = 0;
+          scheduleSaveBank();
+        }
+        continue;
+      }
+
+      if (f.x < -20) f.x = W + 20;
+      if (f.x > W + 20) f.x = -20;
+
+      if (f.y > H + 60){
+        f.y = rand(-120, -10);
+        f.x = rand(0, W);
+        f.jx = f.jy = 0;
+      }
+
+      if (settings.style === "flake" && r >= 1.6) drawSnowflakeShape(f, r);
+      else drawPuff(f, r);
+    }
+
+    drawBank();
+    for (let i=0;i<waves.length;i++) drawWave(waves[i]);
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- Drawing helpers (depend on settings) ----------
+  function drawPuff(f, r){
+    const x=f.x, y=f.y;
+    const col = settings.flake;
+
+    const g = ctx.createRadialGradient(x - r*0.25, y - r*0.25, r*0.15, x, y, r*1.25);
+    g.addColorStop(0, rgbaFromHex(col, 0.90*f.alpha));
+    g.addColorStop(1, rgbaFromHex(col, 0.06*f.alpha));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r*1.18, 0, Math.PI*2);
+    ctx.fill();
+
+    const sparkle = 0.35 + 0.65*(0.5 + 0.5*Math.sin(f.rot*2.3));
+    ctx.fillStyle = rgbaFromHex(col, 0.16*f.alpha*sparkle*f.sparkle);
+    ctx.beginPath();
+    ctx.arc(x + r*0.22, y - r*0.28, r*0.42, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawSnowflakeShape(f, r){
+    const x=f.x, y=f.y;
+    const col = settings.flake;
+    const a = f.alpha;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(f.rot);
+
+    ctx.fillStyle = rgbaFromHex(col, 0.55*a);
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(0.8, r*0.22), 0, Math.PI*2);
+    ctx.fill();
+
+    const arm = r*1.85;
+    const branch = r*0.55;
+    const lw = Math.max(1, r*0.22);
+
+    ctx.lineCap = "round";
+
+    for (let k=0;k<6;k++){
+      const ang = k*(Math.PI/3);
+      const cx = Math.cos(ang), sy = Math.sin(ang);
+
+      ctx.strokeStyle = rgbaFromHex(col, 0.62*a);
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(0,0);
+      ctx.lineTo(cx*arm, sy*arm);
+      ctx.stroke();
+
+      for (let m=1;m<=2;m++){
+        const tt = arm*(0.35 + m*0.22);
+        const px = cx*tt, py = sy*tt;
+        const side = (m===1 ? 1 : -1);
+        const a1 = ang + side*0.55;
+        const a2 = ang - side*0.55;
+
+        ctx.strokeStyle = rgbaFromHex(col, (0.50 - m*0.08)*a);
+        ctx.lineWidth = Math.max(1, lw*0.85);
+
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + Math.cos(a1)*branch, py + Math.sin(a1)*branch);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + Math.cos(a2)*branch, py + Math.sin(a2)*branch);
+        ctx.stroke();
+      }
+    }
+
+    ctx.strokeStyle = rgbaFromHex(col, 0.10*a);
+    ctx.lineWidth = r*0.9;
+    ctx.beginPath();
+    ctx.arc(0,0, r*0.6, 0, Math.PI*2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawWave(w){
+    const a = Math.max(0, 1 - w.age / w.life);
+    ctx.strokeStyle = rgbaFromHex(settings.flake, 0.14*a);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, w.r, 0, Math.PI*2);
+    ctx.stroke();
+  }
+
+  // ---------- Init ----------
+  function init(){
+    // 1) базовые дефолты, зависящие от экрана
+    resize();
+    applyDefaultsBase();
+
+    // 2) пробуем восстановить настройки из localStorage
+    loadSettings();
+
+    // 3) UI + цвета
+    syncUIFromSettings();
+    syncCount();
+
+    // 4) восстанавливаем сугробы из localStorage (если есть)
+    loadedBank = loadBankFromLS();
+    if (loadedBank && loadedBank.length >= 2){
+      // подгоняем под текущую bankN
+      const res = resampleArray(loadedBank, bankN);
+      if (res){
+        bank = res;
+        for (let i=0;i<bankN;i++) bank[i] = Math.max(bank[i], bankBase[i]);
+      }
+    }
+
+    // 5) обновим отображение выбранных свотчей (вдруг были из LS)
+    renderSwatches(bgSwatches, BG_PALETTE, () => settings.bg, (v) => settings.bg = v);
+    renderSwatches(flakeSwatches, FLAKE_PALETTE, () => settings.flake, (v) => settings.flake = v);
+    applyBackground();
+    updateLabels();
+
+    // 6) обновим ползунки (после loadSettings)
+    countRange.value = String(settings.count);
+    sizeRange.value  = String(Math.round(settings.sizeMul*100));
+    waveRange.value  = String(settings.waveAmp);
+    flakeStyleSel.value = settings.style;
+
+    updateFsUI();
+
+    // если в LS ничего не было — сохраним начальное состояние, чтобы дальше уже было что обновлять
+    scheduleSaveAll();
+
+    ctx.fillStyle = "rgba(0,0,0,1)";
+    ctx.fillRect(0,0,W,H);
+    requestAnimationFrame(frame);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
