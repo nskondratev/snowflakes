@@ -234,11 +234,11 @@
       <option value="flake">❄️ Снежинка</option>
       <option value="star">⭐️ Звёздочки</option>
       <option value="smiley">🙂 Смайлики</option>
-      <option value="duck">🦆 Уточка</option>
       <option value="sausage">🌭 Сосиска</option>
-      <option value="drop">💧 Капля</option>
-      <option value="cat">🐱 Киска</option>
       <option value="snail">🐌 Улитка</option>
+      <option value="crystal">💎 Кристалл</option>
+      <option value="ornament">🔴 Ёлочный шар</option>
+      <option value="flower">🌸 Цветок</option>
     </select>
     <div class="mini">“❄️ Снежинка” более настоящая, но чуть тяжелее по графике.</div>
   </div>
@@ -404,7 +404,7 @@
     waveAmp: 90,
     bg: BG_PALETTE[0],
     flake: FLAKE_PALETTE[0],
-    style: "puff", // puff|flake|star|smiley|duck|sausage|drop|cat|snail
+    style: "puff", // puff|flake|star|smiley|sausage|snail|crystal|ornament|flower
     scene: "custom" // custom|night|dusk|polar|newyear
   };
 
@@ -814,52 +814,6 @@
     ctx.restore();
   }
 
-  function drawDuckShape(f, r){
-    const x=f.x, y=f.y;
-    const col = settings.flake;
-    const a = f.alpha;
-    const ink = `rgba(20,20,20,${0.7*a})`;
-
-    const bodyRx = r*1.55;
-    const bodyRy = r*0.95;
-    const headR = r*0.7;
-    const headX = bodyRx*0.75;
-    const headY = -bodyRy*0.55;
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(f.rot * 0.15);
-
-    ctx.fillStyle = rgbaFromHex(col, 0.7*a);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, bodyRx, bodyRy, 0, 0, Math.PI*2);
-    ctx.fill();
-
-    ctx.strokeStyle = rgbaFromHex(col, 0.22*a);
-    ctx.lineWidth = Math.max(1, r*0.2);
-    ctx.stroke();
-
-    ctx.fillStyle = rgbaFromHex(col, 0.75*a);
-    ctx.beginPath();
-    ctx.arc(headX, headY, headR, 0, Math.PI*2);
-    ctx.fill();
-
-    ctx.fillStyle = rgbaFromHex(col, 0.65*a);
-    ctx.beginPath();
-    ctx.moveTo(headX + headR*0.2, headY + headR*0.1);
-    ctx.lineTo(headX + headR*1.05, headY + headR*0.25);
-    ctx.lineTo(headX + headR*0.2, headY + headR*0.45);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = ink;
-    ctx.beginPath();
-    ctx.arc(headX - headR*0.2, headY - headR*0.2, Math.max(0.7, r*0.16), 0, Math.PI*2);
-    ctx.fill();
-
-    ctx.restore();
-  }
-
   function drawSausageShape(f, r){
     const x=f.x, y=f.y;
     const col = settings.flake;
@@ -896,36 +850,55 @@
     ctx.restore();
   }
 
-  function drawDropShape(f, r){
+  function drawCrystalShape(f, r){
     const x=f.x, y=f.y;
     const col = settings.flake;
     const a = f.alpha;
+    const outer = r*1.6;
+    const inner = r*0.55;
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(f.rot * 0.12);
+    ctx.rotate(f.rot * 0.45);
 
-    ctx.fillStyle = rgbaFromHex(col, 0.72*a);
+    ctx.fillStyle = rgbaFromHex(col, 0.7*a);
     ctx.beginPath();
-    ctx.moveTo(0, -r*1.65);
-    ctx.bezierCurveTo(r*1.25, -r*0.75, r*1.2, r*0.95, 0, r*1.7);
-    ctx.bezierCurveTo(-r*1.2, r*0.95, -r*1.25, -r*0.75, 0, -r*1.65);
+    ctx.moveTo(0, -outer);
+    ctx.lineTo(outer*0.85, 0);
+    ctx.lineTo(0, outer);
+    ctx.lineTo(-outer*0.85, 0);
     ctx.closePath();
     ctx.fill();
 
-    ctx.strokeStyle = rgbaFromHex(col, 0.25*a);
+    ctx.strokeStyle = rgbaFromHex(col, 0.28*a);
     ctx.lineWidth = Math.max(1, r*0.2);
+    ctx.stroke();
+
+    ctx.strokeStyle = rgbaFromHex(col, 0.38*a);
+    ctx.lineWidth = Math.max(1, r*0.14);
+    ctx.beginPath();
+    ctx.moveTo(0, -outer);
+    ctx.lineTo(0, outer);
+    ctx.moveTo(-outer*0.85, 0);
+    ctx.lineTo(outer*0.85, 0);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0, -inner);
+    ctx.lineTo(inner*0.6, 0);
+    ctx.lineTo(0, inner);
+    ctx.lineTo(-inner*0.6, 0);
+    ctx.closePath();
     ctx.stroke();
 
     ctx.restore();
   }
 
-  function drawCatShape(f, r){
+  function drawOrnamentShape(f, r){
     const x=f.x, y=f.y;
     const col = settings.flake;
     const a = f.alpha;
-    const ink = `rgba(20,20,20,${0.72*a})`;
-    const headR = r*1.15;
+    const rr = r*1.35;
 
     ctx.save();
     ctx.translate(x, y);
@@ -933,39 +906,61 @@
 
     ctx.fillStyle = rgbaFromHex(col, 0.7*a);
     ctx.beginPath();
-    ctx.arc(0, 0, headR, 0, Math.PI*2);
+    ctx.arc(0, 0, rr, 0, Math.PI*2);
     ctx.fill();
 
-    ctx.beginPath();
-    ctx.moveTo(-headR*0.7, -headR*0.2);
-    ctx.lineTo(-headR*0.15, -headR*1.1);
-    ctx.lineTo(0, -headR*0.2);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.moveTo(headR*0.7, -headR*0.2);
-    ctx.lineTo(headR*0.15, -headR*1.1);
-    ctx.lineTo(0, -headR*0.2);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = rgbaFromHex(col, 0.22*a);
+    ctx.strokeStyle = rgbaFromHex(col, 0.25*a);
     ctx.lineWidth = Math.max(1, r*0.2);
     ctx.stroke();
 
-    ctx.fillStyle = ink;
-    const eyeOffset = headR*0.38;
-    const eyeR = Math.max(0.7, r*0.18);
+    ctx.fillStyle = rgbaFromHex(col, 0.45*a);
     ctx.beginPath();
-    ctx.arc(-eyeOffset, -headR*0.05, eyeR, 0, Math.PI*2);
-    ctx.arc(eyeOffset, -headR*0.05, eyeR, 0, Math.PI*2);
+    ctx.arc(-rr*0.3, -rr*0.25, rr*0.35, 0, Math.PI*2);
     ctx.fill();
 
-    ctx.strokeStyle = ink;
+    ctx.strokeStyle = rgbaFromHex(col, 0.35*a);
     ctx.lineWidth = Math.max(1, r*0.16);
+    const capW = rr*0.75;
+    const capH = rr*0.35;
     ctx.beginPath();
-    ctx.arc(0, headR*0.2, headR*0.35, 0, Math.PI);
+    ctx.rect(-capW*0.5, -rr - capH*0.6, capW, capH);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, -rr - capH*0.9, capW*0.2, 0, Math.PI*2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawFlowerShape(f, r){
+    const x=f.x, y=f.y;
+    const col = settings.flake;
+    const a = f.alpha;
+    const petalR = r*0.75;
+    const spread = r*1.2;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(f.rot * 0.2);
+
+    ctx.fillStyle = rgbaFromHex(col, 0.65*a);
+    for (let k=0;k<6;k++){
+      const ang = k*(Math.PI/3);
+      const px = Math.cos(ang)*spread;
+      const py = Math.sin(ang)*spread;
+      ctx.beginPath();
+      ctx.arc(px, py, petalR, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = rgbaFromHex(col, 0.85*a);
+    ctx.beginPath();
+    ctx.arc(0, 0, r*0.55, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.strokeStyle = rgbaFromHex(col, 0.25*a);
+    ctx.lineWidth = Math.max(1, r*0.16);
     ctx.stroke();
 
     ctx.restore();
@@ -1053,11 +1048,11 @@
       flake: "❄️",
       star: "⭐️",
       smiley: "🙂",
-      duck: "🦆",
       sausage: "🌭",
-      drop: "💧",
-      cat: "🐱",
-      snail: "🐌"
+      snail: "🐌",
+      crystal: "💎",
+      ornament: "🔴",
+      flower: "🌸"
     };
     styleVal.textContent = styleIcon[settings.style] || "☁️";
     sceneVal.textContent = (SCENE_BY_ID[settings.scene] || SCENE_BY_ID.custom).label;
@@ -1129,7 +1124,7 @@
       const s = JSON.parse(raw);
       if (!s || s.v !== 1) return false;
 
-      const style = (s.style === "flake" || s.style === "puff" || s.style === "star" || s.style === "smiley" || s.style === "duck" || s.style === "sausage" || s.style === "drop" || s.style === "cat" || s.style === "snail") ? s.style : "puff";
+      const style = (s.style === "flake" || s.style === "puff" || s.style === "star" || s.style === "smiley" || s.style === "sausage" || s.style === "snail" || s.style === "crystal" || s.style === "ornament" || s.style === "flower") ? s.style : "puff";
       const count = Number.isFinite(s.count) ? clamp(Math.round(s.count), 60, 260) : settings.count;
       const sizeMul = Number.isFinite(s.sizeMul) ? clamp(+s.sizeMul, 0.7, 1.6) : settings.sizeMul;
       const waveAmp = Number.isFinite(s.waveAmp) ? clamp(Math.round(s.waveAmp), 40, 140) : settings.waveAmp;
@@ -1326,11 +1321,11 @@
       if (settings.style === "flake") drawSnowflakeShape(f, r);
       else if (settings.style === "star") drawStarShape(f, r);
       else if (settings.style === "smiley") drawSmileyShape(f, r);
-      else if (settings.style === "duck") drawDuckShape(f, r);
       else if (settings.style === "sausage") drawSausageShape(f, r);
-      else if (settings.style === "drop") drawDropShape(f, r);
-      else if (settings.style === "cat") drawCatShape(f, r);
       else if (settings.style === "snail") drawSnailShape(f, r);
+      else if (settings.style === "crystal") drawCrystalShape(f, r);
+      else if (settings.style === "ornament") drawOrnamentShape(f, r);
+      else if (settings.style === "flower") drawFlowerShape(f, r);
       else drawPuff(f, r);
     }
 
