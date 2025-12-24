@@ -122,6 +122,18 @@
 
     input[type="range"]{ width:100%; accent-color:#cfe9ff; }
     .mini{ font-size:12px; color:var(--muted); padding:6px 2px 2px; }
+    .toggleRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .toggleRow input[type="checkbox"]{
+      width:20px;
+      height:20px;
+      accent-color:#cfe9ff;
+      transform: scale(1.15);
+    }
 
     select{
       width:100%;
@@ -299,6 +311,17 @@
   </div>
 
   <div class="row">
+    <div class="labelLine">
+      <div class="label">Можно убирать сугроб</div>
+      <div class="value" id="eraseVal"></div>
+    </div>
+    <div class="toggleRow">
+      <div class="mini">Проведите по сугробу, чтобы стереть его.</div>
+      <input id="eraseBankToggle" type="checkbox" />
+    </div>
+  </div>
+
+  <div class="row">
     <button class="dangerBtn" id="resetBanksBtn" type="button">Сбросить сугробы</button>
     <div class="mini">Вернёт сугробы к стартовому уровню.</div>
   </div>
@@ -340,6 +363,8 @@
   const countVal = document.getElementById("countVal");
   const sizeVal  = document.getElementById("sizeVal");
   const waveVal  = document.getElementById("waveVal");
+  const eraseVal = document.getElementById("eraseVal");
+  const eraseBankToggle = document.getElementById("eraseBankToggle");
   const resetBanksBtn = document.getElementById("resetBanksBtn");
 
   function openPopup(){ overlay.classList.add("open"); popup.classList.add("open"); }
@@ -405,7 +430,8 @@
     bg: BG_PALETTE[0],
     flake: FLAKE_PALETTE[0],
     style: "puff", // puff|flake|star|smiley|sausage|snail|crystal|ornament|flower
-    scene: "custom" // custom|night|dusk|polar|newyear
+    scene: "custom", // custom|night|dusk|polar|newyear
+    canEraseBank: false
   };
 
   const SCENES = [
@@ -581,6 +607,71 @@
     }
   }
 
+  function eraseFromBank(x, amount){
+    const i = Math.floor(x / bankStep);
+    if (i < 0 || i >= bankN) return;
+    const radius = 5;
+    for (let k=-radius;k<=radius;k++){
+      const j = i + k;
+      if (j < 0 || j >= bankN) continue;
+      const w = Math.exp(-(k*k) / 6);
+      bank[j] = Math.max(bankBase[j], bank[j] - amount * w);
+    }
+    for (let j=Math.max(1, i-6); j<=Math.min(bankN-2, i+6); j++){
+      bank[j] = bank[j]*0.65 + (bank[j-1] + bank[j+1]) * 0.175;
+      bank[j] = Math.max(bank[j], bankBase[j]);
+    }
+  }
+
+  const bankDust = [];
+  function spawnBankDust(x, y, strength){
+    const count = clamp(Math.round(strength * 10), 5, 18);
+    for (let i=0;i<count;i++){
+      const a = rand(-Math.PI/2, Math.PI/2);
+      const sp = rand(60, 160) * strength;
+      bankDust.push({
+        x: x + rand(-4, 4),
+        y: y + rand(-6, 2),
+        vx: Math.cos(a) * sp * (Math.random() < 0.5 ? -1 : 1),
+        vy: Math.sin(a) * sp - rand(20, 80),
+        r: rand(0.9, 2.4),
+        alpha: rand(0.5, 0.9),
+        rot: rand(0, Math.PI*2),
+        spin: rand(-6, 6),
+        age: 0,
+        life: rand(0.45, 0.9)
+      });
+    }
+    if (bankDust.length > 260) bankDust.splice(0, bankDust.length - 260);
+  }
+
+  function updateBankDust(dt){
+    for (let i=bankDust.length-1;i>=0;i--){
+      const p = bankDust[i];
+      p.age += dt;
+      if (p.age >= p.life){
+        bankDust.splice(i,1);
+        continue;
+      }
+      p.vx *= Math.pow(0.2, dt);
+      p.vy += 140 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.spin * dt;
+    }
+  }
+
+  function drawBankDust(){
+    for (let i=0;i<bankDust.length;i++){
+      const p = bankDust[i];
+      const a = (1 - p.age / p.life) * p.alpha;
+      ctx.fillStyle = rgbaFromHex(settings.flake, 0.75*a);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
   function drawBank(){
     const maxH = Math.max(...bank);
     const topY = H - maxH;
@@ -659,10 +750,62 @@
     const rect = canvas.getBoundingClientRect();
     return { x: (e.clientX - rect.left), y: (e.clientY - rect.top) };
   }
+  function canEraseAt(p){
+    const groundY = H - bankHeightAtX(p.x);
+    return p.y >= groundY - 12;
+  }
+
+  let erasePointerId = null;
+  let lastErasePos = null;
   canvas.addEventListener("pointerdown", (e)=>{
     const p = pointerToCanvas(e);
+    if (settings.canEraseBank && canEraseAt(p)){
+      erasePointerId = e.pointerId;
+      lastErasePos = p;
+      canvas.setPointerCapture(e.pointerId);
+      eraseFromBank(p.x, 2.4);
+      spawnBankDust(p.x, H - bankHeightAtX(p.x), 1.1);
+      scheduleSaveBank();
+      return;
+    }
     addWave(p.x, p.y, e.pointerType === "touch" ? 1.05 : 1.0);
   }, { passive:true });
+
+  canvas.addEventListener("pointermove", (e)=>{
+    if (erasePointerId !== e.pointerId) return;
+    if (!settings.canEraseBank){
+      erasePointerId = null;
+      return;
+    }
+    const p = pointerToCanvas(e);
+    const last = lastErasePos || p;
+    const dx = p.x - last.x;
+    const dy = p.y - last.y;
+    const dist = Math.hypot(dx, dy);
+    const step = Math.max(6, bankStep * 0.8);
+    const steps = Math.max(1, Math.ceil(dist / step));
+    for (let i=1;i<=steps;i++){
+      const t = i / steps;
+      const sx = last.x + dx * t;
+      const sy = last.y + dy * t;
+      if (canEraseAt({ x:sx, y:sy })){
+        eraseFromBank(sx, 2.1);
+        spawnBankDust(sx, H - bankHeightAtX(sx), 0.9);
+      }
+    }
+    lastErasePos = p;
+    scheduleSaveBank();
+  }, { passive:true });
+
+  function endErase(e){
+    if (erasePointerId === e.pointerId){
+      erasePointerId = null;
+      lastErasePos = null;
+    }
+  }
+  canvas.addEventListener("pointerup", endErase, { passive:true });
+  canvas.addEventListener("pointercancel", endErase, { passive:true });
+  canvas.addEventListener("lostpointercapture", endErase, { passive:true });
 
   // ---------- Drawing ----------
   function drawPuff(f, r){
@@ -1056,6 +1199,7 @@
     };
     styleVal.textContent = styleIcon[settings.style] || "☁️";
     sceneVal.textContent = (SCENE_BY_ID[settings.scene] || SCENE_BY_ID.custom).label;
+    eraseVal.textContent = settings.canEraseBank ? "вкл" : "выкл";
     bgVal.textContent = settings.bg;
     flakeVal.textContent = settings.flake;
   }
@@ -1091,7 +1235,8 @@
         waveAmp: settings.waveAmp,
         bg: settings.bg,
         flake: settings.flake,
-        scene: settings.scene
+        scene: settings.scene,
+        canEraseBank: settings.canEraseBank
       };
       localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(payload));
     } catch(e){
@@ -1129,6 +1274,7 @@
       const sizeMul = Number.isFinite(s.sizeMul) ? clamp(+s.sizeMul, 0.7, 1.6) : settings.sizeMul;
       const waveAmp = Number.isFinite(s.waveAmp) ? clamp(Math.round(s.waveAmp), 40, 140) : settings.waveAmp;
       const scene = (s.scene && SCENE_BY_ID[s.scene]) ? s.scene : "custom";
+      const canEraseBank = !!s.canEraseBank;
 
       // цвета — только из палитры (иначе берём дефолт)
       const bg = (typeof s.bg === "string" && BG_PALETTE.includes(s.bg.toUpperCase())) ? s.bg.toUpperCase() : settings.bg;
@@ -1141,6 +1287,7 @@
       settings.bg = bg;
       settings.flake = flake;
       settings.scene = scene;
+      settings.canEraseBank = canEraseBank;
 
       return true;
     } catch(e){
@@ -1197,6 +1344,12 @@
     scheduleSaveAll();
   });
 
+  eraseBankToggle.addEventListener("change", ()=>{
+    settings.canEraseBank = eraseBankToggle.checked;
+    updateLabels();
+    scheduleSaveAll();
+  });
+
   // ---------- Defaults / init ----------
   function applyDefaultsBase(){
     const area = W*H;
@@ -1208,6 +1361,7 @@
     settings.flake = FLAKE_PALETTE[0];
     settings.style = "puff";
     settings.scene = "custom";
+    settings.canEraseBank = false;
   }
 
   function syncUIFromSettings(){
@@ -1216,6 +1370,7 @@
     waveRange.value  = String(settings.waveAmp);
     flakeStyleSel.value = settings.style;
     sceneSel.value = settings.scene;
+    eraseBankToggle.checked = settings.canEraseBank;
 
     renderSwatches(bgSwatches, BG_PALETTE, () => settings.bg, (v) => settings.bg = v);
     renderSwatches(flakeSwatches, FLAKE_PALETTE, () => settings.flake, (v) => settings.flake = v);
@@ -1245,6 +1400,7 @@
       w.r += w.speed*dt;
       if (w.age > w.life) waves.splice(i,1);
     }
+    updateBankDust(dt);
 
     for (let i=0;i<flakes.length;i++){
       const f = flakes[i];
@@ -1330,6 +1486,7 @@
     }
 
     drawBank();
+    drawBankDust();
     for (let i=0;i<waves.length;i++) drawWave(waves[i]);
 
     requestAnimationFrame(frame);
