@@ -63,6 +63,7 @@
       position:fixed;
       left:12px; right:12px;
       top:70px;
+      max-height: calc(100vh - 120px);
       max-width:580px;
       margin:0 auto;
       border-radius:18px;
@@ -73,6 +74,9 @@
       color:var(--text);
       display:none;
       pointer-events:auto;
+      overflow-y:auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
     .popup.open{ display:block; }
 
