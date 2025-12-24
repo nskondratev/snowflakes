@@ -232,6 +232,8 @@
     <select id="flakeStyle">
       <option value="puff">☁️ Пух</option>
       <option value="flake">❄️ Снежинка</option>
+      <option value="star">⭐️ Звёздочки</option>
+      <option value="smiley">🙂 Смайлики</option>
     </select>
     <div class="mini">“❄️ Снежинка” более настоящая, но чуть тяжелее по графике.</div>
   </div>
@@ -379,7 +381,7 @@
     waveAmp: 90,
     bg: BG_PALETTE[0],
     flake: FLAKE_PALETTE[0],
-    style: "puff" // puff|flake
+    style: "puff" // puff|flake|star|smiley
   };
 
   function applyBackground(){
@@ -694,6 +696,73 @@
     ctx.restore();
   }
 
+  function drawStarShape(f, r){
+    const x=f.x, y=f.y;
+    const col = settings.flake;
+    const a = f.alpha;
+    const outer = Math.max(2, r*1.7);
+    const inner = Math.max(1, r*0.75);
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(f.rot * 0.7);
+
+    ctx.fillStyle = rgbaFromHex(col, 0.72*a);
+    ctx.beginPath();
+    for (let i=0;i<10;i++){
+      const ang = i * (Math.PI / 5);
+      const rad = (i % 2 === 0) ? outer : inner;
+      const px = Math.cos(ang) * rad;
+      const py = Math.sin(ang) * rad;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = rgbaFromHex(col, 0.20*a);
+    ctx.lineWidth = Math.max(1, r*0.25);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawSmileyShape(f, r){
+    const x=f.x, y=f.y;
+    const col = settings.flake;
+    const a = f.alpha;
+    const rr = Math.max(2.2, r*1.4);
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(f.rot * 0.2);
+
+    ctx.fillStyle = rgbaFromHex(col, 0.65*a);
+    ctx.beginPath();
+    ctx.arc(0, 0, rr, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.strokeStyle = rgbaFromHex(col, 0.20*a);
+    ctx.lineWidth = Math.max(1, r*0.22);
+    ctx.stroke();
+
+    ctx.fillStyle = rgbaFromHex(col, 0.55*a);
+    const eyeOffset = rr * 0.38;
+    const eyeR = Math.max(0.8, r*0.22);
+    ctx.beginPath();
+    ctx.arc(-eyeOffset, -eyeOffset*0.2, eyeR, 0, Math.PI*2);
+    ctx.arc(eyeOffset, -eyeOffset*0.2, eyeR, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.strokeStyle = rgbaFromHex(col, 0.55*a);
+    ctx.lineWidth = Math.max(1, r*0.2);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(0, rr*0.12, rr*0.55, 0, Math.PI);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
   function drawWave(w){
     const a = Math.max(0, 1 - w.age / w.life);
     ctx.strokeStyle = rgbaFromHex(settings.flake, 0.14*a);
@@ -708,7 +777,13 @@
     countVal.textContent = settings.count.toString();
     sizeVal.textContent  = `${Math.round(settings.sizeMul*100)}%`;
     waveVal.textContent  = settings.waveAmp.toString();
-    styleVal.textContent = (settings.style === "flake") ? "❄️" : "☁️";
+    const styleIcon = {
+      puff: "☁️",
+      flake: "❄️",
+      star: "⭐️",
+      smiley: "🙂"
+    };
+    styleVal.textContent = styleIcon[settings.style] || "☁️";
     bgVal.textContent = settings.bg;
     flakeVal.textContent = settings.flake;
   }
@@ -776,7 +851,7 @@
       const s = JSON.parse(raw);
       if (!s || s.v !== 1) return false;
 
-      const style = (s.style === "flake" || s.style === "puff") ? s.style : "puff";
+      const style = (s.style === "flake" || s.style === "puff" || s.style === "star" || s.style === "smiley") ? s.style : "puff";
       const count = Number.isFinite(s.count) ? clamp(Math.round(s.count), 60, 260) : settings.count;
       const sizeMul = Number.isFinite(s.sizeMul) ? clamp(+s.sizeMul, 0.7, 1.6) : settings.sizeMul;
       const waveAmp = Number.isFinite(s.waveAmp) ? clamp(Math.round(s.waveAmp), 40, 140) : settings.waveAmp;
@@ -961,7 +1036,9 @@
         f.jx = f.jy = 0;
       }
 
-      if (settings.style === "flake" && r >= 1.6) drawSnowflakeShape(f, r);
+      if (settings.style === "flake") drawSnowflakeShape(f, r);
+      else if (settings.style === "star") drawStarShape(f, r);
+      else if (settings.style === "smiley") drawSmileyShape(f, r);
       else drawPuff(f, r);
     }
 
