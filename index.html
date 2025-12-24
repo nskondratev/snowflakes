@@ -251,6 +251,7 @@
       <option value="crystal">💎 Кристалл</option>
       <option value="ornament">🔴 Ёлочный шар</option>
       <option value="flower">🌸 Цветок</option>
+      <option value="bee">🐝 Пчела</option>
     </select>
     <div class="mini">“❄️ Снежинка” более настоящая, но чуть тяжелее по графике.</div>
   </div>
@@ -429,7 +430,7 @@
     waveAmp: 90,
     bg: BG_PALETTE[0],
     flake: FLAKE_PALETTE[0],
-    style: "puff", // puff|flake|star|smiley|sausage|snail|crystal|ornament|flower
+    style: "puff", // puff|flake|star|smiley|sausage|snail|crystal|ornament|flower|bee
     scene: "custom", // custom|night|dusk|polar|newyear
     canEraseBank: false
   };
@@ -1109,6 +1110,50 @@
     ctx.restore();
   }
 
+  function drawBeeShape(f, r){
+    const x=f.x, y=f.y;
+    const col = settings.flake;
+    const a = f.alpha;
+    const ink = `rgba(30,30,30,${0.7*a})`;
+    const bodyRx = r*1.25;
+    const bodyRy = r*0.8;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(f.rot * 0.12);
+
+    ctx.fillStyle = rgbaFromHex(col, 0.72*a);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, bodyRx, bodyRy, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.strokeStyle = rgbaFromHex(col, 0.25*a);
+    ctx.lineWidth = Math.max(1, r*0.18);
+    ctx.stroke();
+
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = Math.max(1, r*0.22);
+    for (let k=-0.6; k<=0.6; k+=0.6){
+      ctx.beginPath();
+      ctx.moveTo(k*bodyRx, -bodyRy*0.85);
+      ctx.lineTo(k*bodyRx, bodyRy*0.85);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = rgbaFromHex(col, 0.5*a);
+    ctx.beginPath();
+    ctx.ellipse(-bodyRx*0.15, -bodyRy*0.9, bodyRx*0.55, bodyRy*0.55, -0.2, 0, Math.PI*2);
+    ctx.ellipse(bodyRx*0.25, -bodyRy*0.8, bodyRx*0.45, bodyRy*0.5, 0.25, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = ink;
+    ctx.beginPath();
+    ctx.arc(bodyRx*0.55, -bodyRy*0.1, Math.max(0.6, r*0.15), 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   function drawSnailShape(f, r){
     const x=f.x, y=f.y;
     const col = settings.flake;
@@ -1195,7 +1240,8 @@
       snail: "🐌",
       crystal: "💎",
       ornament: "🔴",
-      flower: "🌸"
+      flower: "🌸",
+      bee: "🐝"
     };
     styleVal.textContent = styleIcon[settings.style] || "☁️";
     sceneVal.textContent = (SCENE_BY_ID[settings.scene] || SCENE_BY_ID.custom).label;
@@ -1269,7 +1315,7 @@
       const s = JSON.parse(raw);
       if (!s || s.v !== 1) return false;
 
-      const style = (s.style === "flake" || s.style === "puff" || s.style === "star" || s.style === "smiley" || s.style === "sausage" || s.style === "snail" || s.style === "crystal" || s.style === "ornament" || s.style === "flower") ? s.style : "puff";
+      const style = (s.style === "flake" || s.style === "puff" || s.style === "star" || s.style === "smiley" || s.style === "sausage" || s.style === "snail" || s.style === "crystal" || s.style === "ornament" || s.style === "flower" || s.style === "bee") ? s.style : "puff";
       const count = Number.isFinite(s.count) ? clamp(Math.round(s.count), 60, 260) : settings.count;
       const sizeMul = Number.isFinite(s.sizeMul) ? clamp(+s.sizeMul, 0.7, 1.6) : settings.sizeMul;
       const waveAmp = Number.isFinite(s.waveAmp) ? clamp(Math.round(s.waveAmp), 40, 140) : settings.waveAmp;
@@ -1482,6 +1528,7 @@
       else if (settings.style === "crystal") drawCrystalShape(f, r);
       else if (settings.style === "ornament") drawOrnamentShape(f, r);
       else if (settings.style === "flower") drawFlowerShape(f, r);
+      else if (settings.style === "bee") drawBeeShape(f, r);
       else drawPuff(f, r);
     }
 
