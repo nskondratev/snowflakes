@@ -245,6 +245,21 @@
 
   <div class="row">
     <div class="labelLine">
+      <div class="label">Режим сцены</div>
+      <div class="value" id="sceneVal"></div>
+    </div>
+    <select id="sceneMode">
+      <option value="custom">✨ Ручной</option>
+      <option value="night">🌙 Ночь</option>
+      <option value="dusk">🌆 Сумерки</option>
+      <option value="polar">🌌 Полярная ночь</option>
+      <option value="newyear">🎄 Мягкий новогодний свет</option>
+    </select>
+    <div class="mini">Пресеты подбирают фон и цвет снежинок.</div>
+  </div>
+
+  <div class="row">
+    <div class="labelLine">
       <div class="label">Фон (16 пастельных)</div>
       <div class="value" id="bgVal"></div>
     </div>
@@ -310,6 +325,9 @@
 
   const flakeStyleSel = document.getElementById("flakeStyle");
   const styleVal = document.getElementById("styleVal");
+
+  const sceneSel = document.getElementById("sceneMode");
+  const sceneVal = document.getElementById("sceneVal");
 
   const bgSwatches = document.getElementById("bgSwatches");
   const flakeSwatches = document.getElementById("flakeSwatches");
@@ -386,13 +404,39 @@
     waveAmp: 90,
     bg: BG_PALETTE[0],
     flake: FLAKE_PALETTE[0],
-    style: "puff" // puff|flake|star|smiley|duck|sausage|drop|cat|snail
+    style: "puff", // puff|flake|star|smiley|duck|sausage|drop|cat|snail
+    scene: "custom" // custom|night|dusk|polar|newyear
   };
+
+  const SCENES = [
+    { id: "custom", label: "✨", bg: null, flake: null },
+    { id: "night", label: "🌙", bg: "#0B0F14", flake: "#EAF3FF" },
+    { id: "dusk", label: "🌆", bg: "#17263A", flake: "#FFE8D6" },
+    { id: "polar", label: "🌌", bg: "#101A2A", flake: "#D8F6FF" },
+    { id: "newyear", label: "🎄", bg: "#2B2430", flake: "#FFF1C7" }
+  ];
+  const SCENE_BY_ID = Object.fromEntries(SCENES.map((s) => [s.id, s]));
 
   function applyBackground(){
     document.body.style.background = settings.bg;
     bgVal.textContent = settings.bg;
     flakeVal.textContent = settings.flake;
+  }
+
+  function setSceneId(id){
+    settings.scene = SCENE_BY_ID[id] ? id : "custom";
+    updateLabels();
+  }
+
+  function applyScene(id){
+    const scene = SCENE_BY_ID[id] || SCENE_BY_ID.custom;
+    settings.scene = scene.id;
+    if (scene.bg) settings.bg = scene.bg;
+    if (scene.flake) settings.flake = scene.flake;
+    applyBackground();
+    renderSwatches(bgSwatches, BG_PALETTE, () => settings.bg, (v) => settings.bg = v);
+    renderSwatches(flakeSwatches, FLAKE_PALETTE, () => settings.flake, (v) => settings.flake = v);
+    updateLabels();
   }
 
   function renderSwatches(container, palette, getCurrent, setCurrent){
@@ -412,6 +456,7 @@
         for (const child of container.children) child.setAttribute("aria-selected", "false");
         b.setAttribute("aria-selected", "true");
         applyBackground();
+        setSceneId("custom");
         scheduleSaveAll(); // persist
       }, { passive:true });
 
@@ -1015,6 +1060,7 @@
       snail: "🐌"
     };
     styleVal.textContent = styleIcon[settings.style] || "☁️";
+    sceneVal.textContent = (SCENE_BY_ID[settings.scene] || SCENE_BY_ID.custom).label;
     bgVal.textContent = settings.bg;
     flakeVal.textContent = settings.flake;
   }
@@ -1049,7 +1095,8 @@
         sizeMul: settings.sizeMul,
         waveAmp: settings.waveAmp,
         bg: settings.bg,
-        flake: settings.flake
+        flake: settings.flake,
+        scene: settings.scene
       };
       localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(payload));
     } catch(e){
@@ -1086,6 +1133,7 @@
       const count = Number.isFinite(s.count) ? clamp(Math.round(s.count), 60, 260) : settings.count;
       const sizeMul = Number.isFinite(s.sizeMul) ? clamp(+s.sizeMul, 0.7, 1.6) : settings.sizeMul;
       const waveAmp = Number.isFinite(s.waveAmp) ? clamp(Math.round(s.waveAmp), 40, 140) : settings.waveAmp;
+      const scene = (s.scene && SCENE_BY_ID[s.scene]) ? s.scene : "custom";
 
       // цвета — только из палитры (иначе берём дефолт)
       const bg = (typeof s.bg === "string" && BG_PALETTE.includes(s.bg.toUpperCase())) ? s.bg.toUpperCase() : settings.bg;
@@ -1097,6 +1145,7 @@
       settings.waveAmp = waveAmp;
       settings.bg = bg;
       settings.flake = flake;
+      settings.scene = scene;
 
       return true;
     } catch(e){
@@ -1129,6 +1178,11 @@
     scheduleSaveAll();
   });
 
+  sceneSel.addEventListener("change", ()=>{
+    applyScene(sceneSel.value);
+    scheduleSaveAll();
+  });
+
   countRange.addEventListener("input", ()=>{
     settings.count = parseInt(countRange.value, 10);
     syncCount();
@@ -1158,6 +1212,7 @@
     settings.bg = BG_PALETTE[0];
     settings.flake = FLAKE_PALETTE[0];
     settings.style = "puff";
+    settings.scene = "custom";
   }
 
   function syncUIFromSettings(){
@@ -1165,6 +1220,7 @@
     sizeRange.value  = String(Math.round(settings.sizeMul*100));
     waveRange.value  = String(settings.waveAmp);
     flakeStyleSel.value = settings.style;
+    sceneSel.value = settings.scene;
 
     renderSwatches(bgSwatches, BG_PALETTE, () => settings.bg, (v) => settings.bg = v);
     renderSwatches(flakeSwatches, FLAKE_PALETTE, () => settings.flake, (v) => settings.flake = v);
